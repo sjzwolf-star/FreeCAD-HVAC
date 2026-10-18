@@ -2,11 +2,22 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#87ceeb" />
 <title>可走进去的 3D 世界 - Walkable World</title>
 <style>
-  html, body { margin: 0; padding: 0; overflow: hidden; height: 100%; background: #87ceeb; font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
-  canvas { display: block; }
+  html, body {
+    margin: 0; padding: 0; overflow: hidden; height: 100%; width: 100%;
+    background: #87ceeb;
+    font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+  canvas { display: block; touch-action: none; }
 
   /* 开始/暂停遮罩 */
   #blocker {
@@ -17,13 +28,14 @@
     color: #fff; text-align: center;
     cursor: pointer; z-index: 10;
     transition: opacity .3s ease;
+    padding: 20px; box-sizing: border-box;
   }
   #blocker.hidden { opacity: 0; pointer-events: none; }
-  #blocker h1 { font-size: 44px; margin: 0 0 8px; letter-spacing: 2px; text-shadow: 0 2px 18px rgba(0,0,0,.6); }
-  #blocker .sub { font-size: 16px; opacity: .85; margin-bottom: 28px; }
-  #blocker .keys { display: grid; grid-template-columns: auto auto; gap: 10px 22px; font-size: 15px; background: rgba(255,255,255,.08); padding: 18px 26px; border-radius: 14px; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.15); }
+  #blocker h1 { font-size: clamp(28px, 7vw, 44px); margin: 0 0 8px; letter-spacing: 2px; text-shadow: 0 2px 18px rgba(0,0,0,.6); }
+  #blocker .sub { font-size: clamp(13px, 3.5vw, 16px); opacity: .85; margin-bottom: 22px; }
+  #blocker .keys { display: grid; grid-template-columns: auto auto; gap: 8px 18px; font-size: clamp(12px, 3.2vw, 15px); background: rgba(255,255,255,.08); padding: 16px 22px; border-radius: 14px; backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.15); }
   #blocker .keys b { color: #ffd166; }
-  #blocker .start { margin-top: 26px; font-size: 18px; padding: 12px 30px; border-radius: 999px; background: #ffd166; color: #1a1a1a; font-weight: 700; box-shadow: 0 6px 20px rgba(255,209,102,.35); }
+  #blocker .start { margin-top: 24px; font-size: clamp(16px, 4vw, 18px); padding: 12px 30px; border-radius: 999px; background: #ffd166; color: #1a1a1a; font-weight: 700; box-shadow: 0 6px 20px rgba(255,209,102,.35); }
 
   /* 准星 */
   #crosshair {
@@ -41,10 +53,56 @@
   /* HUD 提示 */
   #hud {
     position: absolute; left: 14px; bottom: 14px;
-    color: rgba(255,255,255,.8); font-size: 13px;
-    background: rgba(0,0,0,.35); padding: 8px 12px; border-radius: 8px;
+    color: rgba(255,255,255,.8); font-size: 12px;
+    background: rgba(0,0,0,.35); padding: 6px 10px; border-radius: 8px;
     z-index: 5; display: none; pointer-events: none;
   }
+
+  /* ===== 移动端虚拟摇杆 ===== */
+  #joystick-base {
+    position: absolute; left: 0; bottom: 0;
+    width: 130px; height: 130px; margin: 28px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.12);
+    border: 2px solid rgba(255,255,255,.3);
+    z-index: 6; display: none;
+    pointer-events: none;
+    transform: translate(-9999px, -9999px);
+  }
+  #joystick-knob {
+    position: absolute; left: 50%; top: 50%;
+    width: 56px; height: 56px;
+    margin-left: -28px; margin-top: -28px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.55);
+    border: 2px solid rgba(255,255,255,.8);
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  }
+
+  /* ===== 移动端按钮 ===== */
+  .mobile-btn {
+    position: absolute; z-index: 6;
+    border-radius: 50%;
+    background: rgba(255,255,255,.2);
+    border: 2px solid rgba(255,255,255,.5);
+    color: #fff; font-weight: 700; font-size: 16px;
+    display: none; align-items: center; justify-content: center;
+    pointer-events: auto;
+    -webkit-user-select: none; user-select: none;
+  }
+  .mobile-btn:active { background: rgba(255,255,255,.45); }
+  #btn-jump {
+    right: 30px; bottom: 40px;
+    width: 78px; height: 78px;
+    background: rgba(255,209,102,.35);
+    border-color: rgba(255,209,102,.7);
+  }
+  #btn-run {
+    right: 120px; bottom: 30px;
+    width: 60px; height: 60px;
+    font-size: 13px;
+  }
+  #btn-run.active { background: rgba(102,220,255,.45); border-color: rgba(102,220,255,.8); }
 </style>
 </head>
 <body>
@@ -52,24 +110,35 @@
 <div id="blocker">
   <h1>🌳 走进去的 3D 世界</h1>
   <div class="sub">一个用 three.js 搭建的可漫游庭院</div>
-  <div class="keys">
+  <div class="keys" id="keys-desktop">
     <div><b>W A S D</b></div><div>前后左右移动</div>
     <div><b>鼠标</b></div><div>转动视角</div>
     <div><b>空格</b></div><div>跳跃</div>
     <div><b>Shift</b></div><div>奔跑</div>
     <div><b>Esc</b></div><div>退出/暂停</div>
   </div>
-  <div class="start">点击进入世界</div>
+  <div class="keys" id="keys-mobile" style="display:none">
+    <div><b>左屏摇杆</b></div><div>移动</div>
+    <div><b>右屏滑动</b></div><div>转动视角</div>
+    <div><b>跳 按钮</b></div><div>跳跃</div>
+    <div><b>跑 按钮</b></div><div>奔跑</div>
+  </div>
+  <div class="start" id="start-btn">点击进入世界</div>
 </div>
 
 <div id="crosshair"></div>
 <div id="hud">WASD 移动 · 鼠标视角 · 空格跳跃 · Shift 奔跑</div>
 
+<!-- 移动端控件 -->
+<div id="joystick-base"><div id="joystick-knob"></div></div>
+<div class="mobile-btn" id="btn-jump">跳</div>
+<div class="mobile-btn" id="btn-run">跑</div>
+
 <script type="importmap">
 {
   "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
   }
 }
 </script>
@@ -79,29 +148,46 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
 /* ============================================================
+ *  设备检测
+ * ============================================================ */
+const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
+/* ============================================================
  *  全局变量
  * ============================================================ */
 let camera, scene, renderer, controls;
-const colliders = [];            // 可碰撞物体的世界包围盒 (THREE.Box3)
+const colliders = [];
+// 键盘输入
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
 let canJump = false;
 let isRunning = false;
 let prevTime = performance.now();
 const velocity = new THREE.Vector3();
-const direction = new THREE.Vector3();
+const dirVec = new THREE.Vector3();   // 相机前向 (XZ 平面)
+const rightVec = new THREE.Vector3(); // 相机右向
+
+// 摇杆输入 (-1 ~ 1)
+const joy = { x: 0, y: 0 };
+
+// 移动端游戏状态 (不依赖 pointer lock)
+let mobilePlaying = false;
 
 // 玩家参数
-const EYE_HEIGHT = 1.7;          // 站立时眼睛高度
-const PLAYER_RADIUS = 0.35;      // 碰撞半径
-const GRAVITY = 28;              // 重力 (单位: m/s^2, 世界单位=米)
+const EYE_HEIGHT = 1.7;
+const PLAYER_RADIUS = 0.35;
+const GRAVITY = 28;
 const JUMP_SPEED = 8.5;
 const WALK_SPEED = 5.0;
 const RUN_SPEED = 9.0;
+
+// 视角灵敏度
+const LOOK_SENSITIVITY = 0.0025;
 
 /* ============================================================
  *  初始化
  * ============================================================ */
 init();
+setupMobileControls();
 animate();
 
 function init() {
@@ -122,7 +208,9 @@ function init() {
   const sun = new THREE.DirectionalLight(0xfff4d6, 1.1);
   sun.position.set(30, 50, 20);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  // 移动端降低阴影分辨率以提升性能
+  const shadowSize = isTouch ? 1024 : 2048;
+  sun.shadow.mapSize.set(shadowSize, shadowSize);
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = 120;
   sun.shadow.camera.left = -60;
@@ -131,25 +219,62 @@ function init() {
   sun.shadow.camera.bottom = -60;
   scene.add(sun);
 
-  // ---- 控制器 (第一人称) ----
+  // ---- 控制器 ----
   controls = new PointerLockControls(camera, document.body);
-  scene.add(controls.object);
+  scene.add(controls.getObject());
 
+  // ---- UI 元素 ----
   const blocker = document.getElementById('blocker');
   const crosshair = document.getElementById('crosshair');
   const hud = document.getElementById('hud');
+  const startBtn = document.getElementById('start-btn');
+  const keysDesktop = document.getElementById('keys-desktop');
+  const keysMobile = document.getElementById('keys-mobile');
 
-  blocker.addEventListener('click', () => controls.lock());
-  controls.addEventListener('lock', () => {
+  // 根据设备显示对应操作说明
+  if (isTouch) {
+    keysDesktop.style.display = 'none';
+    keysMobile.style.display = 'grid';
+    startBtn.textContent = '点击进入世界';
+    hud.textContent = '左摇杆移动 · 右滑视角 · 跳/跑 按钮';
+  }
+
+  // 开始游戏
+  blocker.addEventListener('click', startGame);
+
+  function startGame() {
+    if (isTouch) {
+      mobilePlaying = true;
+      onGameStart();
+    } else {
+      controls.lock();
+    }
+  }
+
+  function onGameStart() {
     blocker.classList.add('hidden');
     crosshair.style.display = 'block';
     hud.style.display = 'block';
-  });
-  controls.addEventListener('unlock', () => {
+    if (isTouch) {
+      document.getElementById('joystick-base').style.display = 'block';
+      document.getElementById('btn-jump').style.display = 'flex';
+      document.getElementById('btn-run').style.display = 'flex';
+    }
+  }
+  function onGameStop() {
     blocker.classList.remove('hidden');
     crosshair.style.display = 'none';
     hud.style.display = 'none';
-  });
+    if (isTouch) {
+      mobilePlaying = false;
+      document.getElementById('joystick-base').style.display = 'none';
+      document.getElementById('btn-jump').style.display = 'none';
+      document.getElementById('btn-run').style.display = 'none';
+    }
+  }
+
+  controls.addEventListener('lock', onGameStart);
+  controls.addEventListener('unlock', onGameStop);
 
   // ---- 键盘输入 ----
   document.addEventListener('keydown', onKeyDown);
@@ -165,10 +290,11 @@ function init() {
 
   // ---- 渲染器 ----
   renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(window.devicePixelRatio);
+  // 移动端限制像素比, 避免高 DPI 屏性能不足
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, isTouch ? 1.5 : 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = isTouch ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
   document.body.appendChild(renderer.domElement);
 
   window.addEventListener('resize', onWindowResize);
@@ -200,16 +326,132 @@ function onKeyUp(e) {
 }
 
 /* ============================================================
+ *  移动端触屏控制
+ * ============================================================ */
+function setupMobileControls() {
+  if (!isTouch) return;
+
+  const joyBase = document.getElementById('joystick-base');
+  const joyKnob = document.getElementById('joystick-knob');
+  const JOY_RADIUS = 55;  // 摇杆可移动半径
+
+  // 跟踪每个触点的角色: 'joy' | 'look'
+  const touchRoles = new Map();
+  let joyTouchId = null;
+  let lookTouchId = null;
+  let joyCenter = { x: 0, y: 0 };
+  let lookLast = { x: 0, y: 0 };
+
+  // ---- 跳跃 / 奔跑按钮 ----
+  const btnJump = document.getElementById('btn-jump');
+  const btnRun = document.getElementById('btn-run');
+
+  const tryJump = () => {
+    if (canJump && mobilePlaying) { velocity.y = JUMP_SPEED; canJump = false; }
+  };
+  btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); tryJump(); }, { passive: false });
+
+  btnRun.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    isRunning = !isRunning;
+    btnRun.classList.toggle('active', isRunning);
+  }, { passive: false });
+
+  // ---- 触屏分配: 左半屏 -> 摇杆, 右半屏 -> 视角 ----
+  document.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      // 如果点在按钮上, 按钮自己处理
+      const target = document.elementFromPoint(t.clientX, t.clientY);
+      if (target && (target.closest('#btn-jump') || target.closest('#btn-run'))) continue;
+
+      const isLeft = t.clientX < window.innerWidth / 2;
+      if (isLeft && joyTouchId === null) {
+        joyTouchId = t.identifier;
+        joyCenter = { x: t.clientX, y: t.clientY };
+        // 摇杆底盘定位到触点
+        joyBase.style.transform = `translate(${t.clientX - 65}px, ${t.clientY - 65}px)`;
+        joyKnob.style.transform = 'translate(0,0)';
+        touchRoles.set(t.identifier, 'joy');
+      } else if (!isLeft && lookTouchId === null) {
+        lookTouchId = t.identifier;
+        lookLast = { x: t.clientX, y: t.clientY };
+        touchRoles.set(t.identifier, 'look');
+      } else {
+        // 第三根手指等, 忽略
+        touchRoles.set(t.identifier, 'ignore');
+      }
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const role = touchRoles.get(t.identifier);
+      if (role === 'joy') {
+        let dx = t.clientX - joyCenter.x;
+        let dy = t.clientY - joyCenter.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > JOY_RADIUS) { dx = dx / dist * JOY_RADIUS; dy = dy / dist * JOY_RADIUS; }
+        joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+        // 归一化到 -1..1, y 向上为正 (前)
+        joy.x = dx / JOY_RADIUS;
+        joy.y = -dy / JOY_RADIUS;
+      } else if (role === 'look') {
+        const dx = t.clientX - lookLast.x;
+        const dy = t.clientY - lookLast.y;
+        lookLast = { x: t.clientX, y: t.clientY };
+        rotateCamera(dx, dy);
+      }
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      const role = touchRoles.get(t.identifier);
+      if (role === 'joy') {
+        joyTouchId = null;
+        joy.x = 0; joy.y = 0;
+        joyKnob.style.transform = 'translate(0,0)';
+        joyBase.style.transform = 'translate(-9999px,-9999px)';
+      } else if (role === 'look') {
+        lookTouchId = null;
+      }
+      touchRoles.delete(t.identifier);
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchcancel', (e) => {
+    // 同 touchend 处理
+    for (const t of e.changedTouches) {
+      const role = touchRoles.get(t.identifier);
+      if (role === 'joy') { joyTouchId = null; joy.x = 0; joy.y = 0; joyKnob.style.transform = 'translate(0,0)'; joyBase.style.transform = 'translate(-9999px,-9999px)'; }
+      else if (role === 'look') { lookTouchId = null; }
+      touchRoles.delete(t.identifier);
+    }
+  });
+}
+
+// 手动旋转相机 (移动端视角), 限制俯仰角
+function rotateCamera(dx, dy) {
+  const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+  euler.setFromQuaternion(camera.quaternion);
+  euler.y -= dx * LOOK_SENSITIVITY;
+  euler.x -= dy * LOOK_SENSITIVITY;
+  const limit = Math.PI / 2 - 0.05;
+  euler.x = Math.max(-limit, Math.min(limit, euler.x));
+  camera.quaternion.setFromEuler(euler);
+}
+
+/* ============================================================
  *  碰撞辅助
- *  将 Mesh 的世界包围盒加入 colliders 列表
  * ============================================================ */
 function addCollider(mesh) {
   mesh.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(mesh);
   colliders.push(box);
 }
-
-// 检查玩家 (圆柱) 在 (x,z) 是否与任何碰撞体重叠
 function collidesAt(x, z) {
   const r = PLAYER_RADIUS;
   for (const box of colliders) {
@@ -225,7 +467,6 @@ function collidesAt(x, z) {
  *  构建世界
  * ============================================================ */
 function buildGround() {
-  // 草地
   const geo = new THREE.PlaneGeometry(200, 200);
   geo.rotateX(-Math.PI / 2);
   const mat = new THREE.MeshLambertMaterial({ color: 0x5a8f3c });
@@ -233,7 +474,6 @@ function buildGround() {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // 中央石板小路 (装饰, 不参与碰撞)
   const path = new THREE.Mesh(
     new THREE.PlaneGeometry(3, 40),
     new THREE.MeshLambertMaterial({ color: 0x9a9a9a })
@@ -244,17 +484,14 @@ function buildGround() {
   scene.add(path);
 }
 
-// 四周的围墙 (围成一个 60x60 的院子)
 function buildBoundaryWalls() {
   const wallMat = new THREE.MeshLambertMaterial({ color: 0xb0a090 });
   const wallH = 4, wallT = 1, span = 60;
-
-  // 四面墙
   const walls = [
-    { w: span, h: wallH, d: wallT, x: 0, z: -span / 2 },          // 北
-    { w: span, h: wallH, d: wallT, x: 0, z:  span / 2 },          // 南
-    { w: wallT, h: wallH, d: span, x: -span / 2, z: 0 },          // 西
-    { w: wallT, h: wallH, d: span, x:  span / 2, z: 0 },          // 东
+    { w: span, h: wallH, d: wallT, x: 0, z: -span / 2 },
+    { w: span, h: wallH, d: wallT, x: 0, z:  span / 2 },
+    { w: wallT, h: wallH, d: span, x: -span / 2, z: 0 },
+    { w: wallT, h: wallH, d: span, x:  span / 2, z: 0 },
   ];
   for (const w of walls) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w.w, w.h, w.d), wallMat);
@@ -265,20 +502,13 @@ function buildBoundaryWalls() {
   }
 }
 
-// 几栋小房子
 function buildBuildings() {
   const makeHouse = (x, z, w, d, h, color) => {
-    // 主体
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(w, h, d),
-      new THREE.MeshLambertMaterial({ color })
-    );
+    const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
     body.position.set(x, h / 2, z);
     body.castShadow = true; body.receiveShadow = true;
-    scene.add(body);
-    addCollider(body);
+    scene.add(body); addCollider(body);
 
-    // 屋顶 (四棱锥)
     const roof = new THREE.Mesh(
       new THREE.ConeGeometry(Math.max(w, d) * 0.78, 2.2, 4),
       new THREE.MeshLambertMaterial({ color: 0x8b3a2b })
@@ -288,15 +518,10 @@ function buildBuildings() {
     roof.castShadow = true;
     scene.add(roof);
 
-    // 门
-    const door = new THREE.Mesh(
-      new THREE.BoxGeometry(1.2, 2.2, 0.1),
-      new THREE.MeshLambertMaterial({ color: 0x4a2c1a })
-    );
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.2, 0.1), new THREE.MeshLambertMaterial({ color: 0x4a2c1a }));
     door.position.set(x, 1.1, z + d / 2 + 0.06);
     scene.add(door);
 
-    // 窗户
     const winMat = new THREE.MeshLambertMaterial({ color: 0xffe8a0, emissive: 0x443300 });
     const win1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.1), winMat);
     win1.position.set(x - w / 3, h / 2, z + d / 2 + 0.06);
@@ -305,14 +530,12 @@ function buildBuildings() {
     win2.position.x = x + w / 3;
     scene.add(win2);
   };
-
   makeHouse(-18, -15, 8, 7, 4.5, 0xd9c7a3);
   makeHouse(16, -12, 7, 6, 4, 0xe0c9a8);
   makeHouse(-14, 16, 6, 8, 5, 0xc9b79a);
   makeHouse(18, 18, 9, 7, 4.5, 0xd4b896);
 }
 
-// 树木
 function buildTrees() {
   const makeTree = (x, z, scale = 1) => {
     const trunkH = 2.5 * scale;
@@ -321,72 +544,41 @@ function buildTrees() {
       new THREE.MeshLambertMaterial({ color: 0x6b4423 })
     );
     trunk.position.set(x, trunkH / 2, z);
-    trunk.castShadow = true;
-    scene.add(trunk);
-    addCollider(trunk);
+    trunk.castShadow = true; scene.add(trunk); addCollider(trunk);
 
     const leafColor = [0x3f7d3a, 0x4f9a45, 0x2f6b2a][Math.floor(Math.random() * 3)];
-    const leaves = new THREE.Mesh(
-      new THREE.ConeGeometry(1.6 * scale, 3 * scale, 8),
-      new THREE.MeshLambertMaterial({ color: leafColor })
-    );
+    const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.6 * scale, 3 * scale, 8), new THREE.MeshLambertMaterial({ color: leafColor }));
     leaves.position.set(x, trunkH + 1.2 * scale, z);
-    leaves.castShadow = true;
-    scene.add(leaves);
+    leaves.castShadow = true; scene.add(leaves);
 
-    const leaves2 = new THREE.Mesh(
-      new THREE.ConeGeometry(1.2 * scale, 2.4 * scale, 8),
-      new THREE.MeshLambertMaterial({ color: leafColor })
-    );
+    const leaves2 = new THREE.Mesh(new THREE.ConeGeometry(1.2 * scale, 2.4 * scale, 8), new THREE.MeshLambertMaterial({ color: leafColor }));
     leaves2.position.set(x, trunkH + 2.8 * scale, z);
-    leaves2.castShadow = true;
-    scene.add(leaves2);
+    leaves2.castShadow = true; scene.add(leaves2);
   };
-
-  const spots = [
-    [-8, -8], [10, -6], [-22, 2], [22, 4], [-6, 10], [8, 12],
-    [-25, -22], [24, -24], [25, 22], [-24, 24], [0, -25], [0, 25]
-  ];
+  const spots = [[-8,-8],[10,-6],[-22,2],[22,4],[-6,10],[8,12],[-25,-22],[24,-24],[25,22],[-24,24],[0,-25],[0,25]];
   spots.forEach(([x, z]) => makeTree(x, z, 0.9 + Math.random() * 0.5));
 }
 
-// 木箱 (可跳过的小障碍)
 function buildCrates() {
   const crateMat = new THREE.MeshLambertMaterial({ color: 0x9c6b3f });
-  const spots = [[3, -3], [5, 5], [-4, 8], [-9, 3], [12, 2]];
+  const spots = [[3,-3],[5,5],[-4,8],[-9,3],[12,2]];
   for (const [x, z] of spots) {
     const size = 1.0;
     const c = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), crateMat);
     c.position.set(x, size / 2, z);
     c.castShadow = true; c.receiveShadow = true;
-    scene.add(c);
-    addCollider(c);
+    scene.add(c); addCollider(c);
   }
 }
 
-// 装饰: 石灯笼 + 花丛
 function buildDecorations() {
-  // 石灯笼
   const makeLantern = (x, z) => {
-    const base = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.4, 0.5, 0.3, 8),
-      new THREE.MeshLambertMaterial({ color: 0x888888 })
-    );
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 0.3, 8), new THREE.MeshLambertMaterial({ color: 0x888888 }));
     base.position.set(x, 0.15, z); base.castShadow = true; scene.add(base);
-
-    const pole = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.12, 0.12, 1.0, 8),
-      new THREE.MeshLambertMaterial({ color: 0x999999 })
-    );
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.0, 8), new THREE.MeshLambertMaterial({ color: 0x999999 }));
     pole.position.set(x, 0.8, z); pole.castShadow = true; scene.add(pole);
-
-    const top = new THREE.Mesh(
-      new THREE.BoxGeometry(0.7, 0.5, 0.7),
-      new THREE.MeshLambertMaterial({ color: 0xaaaaaa, emissive: 0x553300 })
-    );
+    const top = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.7), new THREE.MeshLambertMaterial({ color: 0xaaaaaa, emissive: 0x553300 }));
     top.position.set(x, 1.55, z); top.castShadow = true; scene.add(top);
-
-    // 发光
     const light = new THREE.PointLight(0xffcc66, 0.8, 8);
     light.position.set(x, 1.6, z);
     scene.add(light);
@@ -394,16 +586,12 @@ function buildDecorations() {
   makeLantern(-3, -3);
   makeLantern(3, 3);
 
-  // 花丛 (几个彩色小球)
   const flowerColors = [0xff6b9d, 0xffd93d, 0xffffff, 0xc77dff];
   for (let i = 0; i < 40; i++) {
     const x = (Math.random() - 0.5) * 50;
     const z = (Math.random() - 0.5) * 50;
-    if (Math.abs(x) < 1.8) continue; // 避开小路
-    const f = new THREE.Mesh(
-      new THREE.SphereGeometry(0.15, 6, 6),
-      new THREE.MeshLambertMaterial({ color: flowerColors[i % flowerColors.length] })
-    );
+    if (Math.abs(x) < 1.8) continue;
+    const f = new THREE.Mesh(new THREE.SphereGeometry(0.15, 6, 6), new THREE.MeshLambertMaterial({ color: flowerColors[i % flowerColors.length] }));
     f.position.set(x, 0.25, z);
     scene.add(f);
   }
@@ -416,48 +604,65 @@ function animate() {
   requestAnimationFrame(animate);
 
   const time = performance.now();
-  const delta = Math.min((time - prevTime) / 1000, 0.05); // 防止切后台后大跳
+  const delta = Math.min((time - prevTime) / 1000, 0.05);
   prevTime = time;
 
-  if (controls.isLocked) {
-    // 速度衰减 (水平方向)
+  // 统一判断游戏是否进行中
+  const playing = isTouch ? mobilePlaying : controls.isLocked;
+
+  if (playing) {
     const damping = 10.0;
-    velocity.x -= velocity.x * damping * delta;
-    velocity.z -= velocity.z * damping * delta;
+
+    // 合并键盘 + 摇杆输入
+    let inputX = 0, inputZ = 0;
+    if (moveForward)  inputZ += 1;
+    if (moveBackward) inputZ -= 1;
+    if (moveRight)    inputX += 1;
+    if (moveLeft)     inputX -= 1;
+    inputX += joy.x;
+    inputZ += joy.y;
+    // 归一化 (斜向不加速)
+    const len = Math.hypot(inputX, inputZ);
+    if (len > 1) { inputX /= len; inputZ /= len; }
+
+    const speed = isRunning ? RUN_SPEED : WALK_SPEED;
+
+    // 速度在"相机相对空间"内平滑 (右=velocity.x, 前=velocity.z)
+    const targetVX = inputX * speed;
+    const targetVZ = inputZ * speed;
+    const smooth = Math.min(1, damping * delta);
+    velocity.x += (targetVX - velocity.x) * smooth;
+    velocity.z += (targetVZ - velocity.z) * smooth;
+
+    // 转换到世界空间: 相机前向 / 右向 (XZ 平面)
+    camera.getWorldDirection(dirVec);
+    dirVec.y = 0;
+    dirVec.normalize();
+    rightVec.set(dirVec.z, 0, -dirVec.x);
+
+    const worldDX = (velocity.x * rightVec.x + velocity.z * dirVec.x) * delta;
+    const worldDZ = (velocity.x * rightVec.z + velocity.z * dirVec.z) * delta;
 
     // 重力
     velocity.y -= GRAVITY * delta;
 
-    // 输入方向
-    direction.z = Number(moveForward) - Number(moveBackward);
-    direction.x = Number(moveRight) - Number(moveLeft);
-    direction.normalize();
+    // ---- 水平移动 + 碰撞 (分轴) ----
+    const pos = camera.position;
 
-    const speed = isRunning ? RUN_SPEED : WALK_SPEED;
-    if (moveForward || moveBackward) velocity.z -= direction.z * speed * damping * delta;
-    if (moveLeft || moveRight)     velocity.x -= direction.x * speed * damping * delta;
-
-    // ---- 水平移动 + 碰撞 (分轴检测, 实现沿墙滑动) ----
-    const pos = controls.object.position;
-    const dx = -velocity.x * delta;
-    const dz = -velocity.z * delta;
-
-    // X 轴
-    const tryX = pos.x + dx;
+    const tryX = pos.x + worldDX;
     if (!collidesAt(tryX, pos.z)) pos.x = tryX;
     else velocity.x = 0;
 
-    // Z 轴
-    const tryZ = pos.z + dz;
+    const tryZ = pos.z + worldDZ;
     if (!collidesAt(pos.x, tryZ)) pos.z = tryZ;
     else velocity.z = 0;
 
-    // 把玩家限制在院子内 (作为围墙碰撞的后备)
+    // 院子边界
     const half = 30 - PLAYER_RADIUS;
     pos.x = Math.max(-half, Math.min(half, pos.x));
     pos.z = Math.max(-half, Math.min(half, pos.z));
 
-    // ---- 垂直移动 (重力 / 跳跃) ----
+    // ---- 垂直 ----
     pos.y += velocity.y * delta;
     if (pos.y < EYE_HEIGHT) {
       pos.y = EYE_HEIGHT;
